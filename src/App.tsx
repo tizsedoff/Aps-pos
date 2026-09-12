@@ -88,10 +88,10 @@ export default function App() {
   const isAdmin = currentUser.role === 'admin';
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100 text-slate-800 font-sans overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-100 text-slate-800 font-sans overflow-hidden print:h-auto print:bg-white print:overflow-visible">
       
       {/* Barra de Navegación Superior: limpia, gris y blanca descansadora a la vista */}
-      <nav className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 shadow-xs z-20">
+      <nav className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 shadow-xs z-20 print:hidden">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-xs">
@@ -209,7 +209,7 @@ export default function App() {
       </nav>
 
       {/* Área de Trabajo Principal */}
-      <main className="flex-1 overflow-hidden p-6 relative">
+      <main className="flex-1 overflow-hidden p-6 relative print:p-0 print:overflow-visible print:block">
         <AnimatePresence mode="wait">
           {/* VISTA 1: VENTAS (CAJA) */}
           {currentView === 'ventas' && (
