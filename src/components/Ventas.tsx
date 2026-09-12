@@ -18,6 +18,10 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeModalTicket, setActiveModalTicket] = useState<Ticket | null>(null);
   const [caeStatus, setCaeStatus] = useState<'processing' | 'approved'>('processing');
+  
+  // Payment state
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [amountPaid, setAmountPaid] = useState<string>('');
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
@@ -89,6 +93,12 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
 
   const total = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
+  const handleOpenPayment = () => {
+    if (cart.length === 0) return;
+    setAmountPaid('');
+    setIsPaymentModalOpen(true);
+  };
+
   const handleConfirmCheckout = () => {
     if (cart.length === 0) return;
     setIsProcessingCheckout(true);
@@ -110,6 +120,7 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
       setActiveModalTicket(newTicket);
       setCaeStatus('processing');
       setIsProcessingCheckout(false);
+      setIsPaymentModalOpen(false); // Close payment modal
       setCart([]);
 
       // Simular CAE aprobado sin frenar el flujo
@@ -326,25 +337,112 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
             <span className="text-3xl font-black text-slate-900">${total.toLocaleString()}</span>
           </div>
           <button
-            disabled={cart.length === 0 || isProcessingCheckout}
-            onClick={handleConfirmCheckout}
+            disabled={cart.length === 0}
+            onClick={handleOpenPayment}
             className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all
-              ${cart.length === 0 || isProcessingCheckout
+              ${cart.length === 0
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
                 : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 active:scale-98'
               }`}
           >
-            {isProcessingCheckout ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Procesando...
-              </>
-            ) : (
-              'COBRAR TICKET'
-            )}
+            PAGAR / COBRAR TICKET
           </button>
         </div>
       </div>
+
+      {/* Modal de Pago y Cálculo de Vuelto */}
+      <AnimatePresence>
+        {isPaymentModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 text-slate-800 border border-slate-200 flex flex-col relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                  <ReceiptText className="w-6 h-6 text-blue-600" />
+                  Procesar Pago
+                </h3>
+                <button 
+                  onClick={() => setIsPaymentModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors"
+                >
+                  <AlertCircle className="w-5 h-5 opacity-0 absolute" /> {/* Ensure import works if not added */}
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6 text-center">
+                <p className="text-blue-600 font-bold uppercase tracking-wider text-xs mb-1">Total a Pagar</p>
+                <p className="text-4xl font-black text-blue-700">${total.toLocaleString()}</p>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <label className="block text-sm font-bold text-slate-700">
+                  ¿Con cuánto abona el cliente?
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-400">$</span>
+                  <input
+                    type="number"
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(e.target.value)}
+                    placeholder="0"
+                    autoFocus
+                    className="w-full bg-slate-50 border-2 border-slate-200 text-slate-800 rounded-2xl py-4 pl-10 pr-4 text-3xl font-black focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 transition-all"
+                  />
+                </div>
+
+                {/* Accesos rápidos de billetes */}
+                <div className="grid grid-cols-4 gap-2">
+                  <button onClick={() => setAmountPaid(total.toString())} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-sm transition-colors">Justo</button>
+                  <button onClick={() => setAmountPaid('10000')} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-sm transition-colors">$10k</button>
+                  <button onClick={() => setAmountPaid('20000')} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-sm transition-colors">$20k</button>
+                  <button onClick={() => setAmountPaid('50000')} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-sm transition-colors">$50k</button>
+                </div>
+              </div>
+
+              {/* Cálculo de Vuelto */}
+              {Number(amountPaid) >= total && amountPaid !== '' && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-6 text-center">
+                  <p className="text-emerald-700 font-bold uppercase tracking-wider text-xs mb-1">Vuelto a entregar</p>
+                  <p className="text-4xl font-black text-emerald-600">${(Number(amountPaid) - total).toLocaleString()}</p>
+                </div>
+              )}
+              
+              {(Number(amountPaid) < total && amountPaid !== '') && (
+                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 mb-6 text-center text-rose-600 font-bold flex items-center justify-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  El monto es menor al total
+                </div>
+              )}
+
+              <button
+                disabled={Number(amountPaid) < total || amountPaid === '' || isProcessingCheckout}
+                onClick={handleConfirmCheckout}
+                className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all
+                  ${(Number(amountPaid) < total || amountPaid === '') || isProcessingCheckout
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 active:scale-98'
+                  }`}
+              >
+                {isProcessingCheckout ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  'CONFIRMAR Y EMITIR TICKET'
+                )}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Modal / Ticket Visual Generado al Cobrar */}
       <AnimatePresence>
