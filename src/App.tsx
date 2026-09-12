@@ -15,10 +15,64 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewScreen>('ventas');
 
-  // Estado unificado y compartido en tiempo real
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [stockData, setStockData] = useState<Record<string, number>>(INITIAL_STOCK);
-  const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
+  // Estado unificado y compartido en tiempo real (iniciando totalmente limpio)
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_products');
+      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    } catch {
+      return INITIAL_PRODUCTS;
+    }
+  });
+
+  const [stockData, setStockData] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_stock');
+      return saved ? JSON.parse(saved) : INITIAL_STOCK;
+    } catch {
+      return INITIAL_STOCK;
+    }
+  });
+
+  const [tickets, setTickets] = useState<Ticket[]>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_tickets');
+      if (!saved) return INITIAL_TICKETS;
+      const parsed = JSON.parse(saved);
+      return parsed.map((t: any) => ({
+        ...t,
+        createdAt: new Date(t.createdAt),
+        deliveredAt: t.deliveredAt ? new Date(t.deliveredAt) : undefined,
+      }));
+    } catch {
+      return INITIAL_TICKETS;
+    }
+  });
+
+  // Guardar en localStorage cuando cambian los datos
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_products', JSON.stringify(products));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [products]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_stock', JSON.stringify(stockData));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [stockData]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_tickets', JSON.stringify(tickets));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [tickets]);
 
   // Manejador de nueva venta: descuenta stock automáticamente y agrega a la lista de tickets
   const handleNewTicket = (newTicket: Ticket) => {
@@ -68,7 +122,7 @@ export default function App() {
   // Manejadores de Artículos (ADMIN)
   const handleAddProduct = (newProduct: Product) => {
     setProducts(prev => [...prev, newProduct]);
-    setStockData(prev => ({ ...prev, [newProduct.id]: 30 })); // stock inicial por defecto
+    setStockData(prev => ({ ...prev, [newProduct.id]: 0 })); // Inicia con 0 stock hasta que se cargue
   };
 
   const handleDeleteProduct = (productId: string) => {

@@ -144,33 +144,41 @@ export function Admin({ tickets }: AdminProps) {
             </h4>
 
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-              <AnimatePresence>
-                {recentTickets.map(ticket => (
-                  <motion.div
-                    key={ticket.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex justify-between items-center text-xs"
-                  >
-                    <div>
-                      <span className="font-mono font-bold text-slate-800">{ticket.id}</span>
-                      <p className="text-slate-500 text-[11px] mt-0.5">
-                        {ticket.cashierName} • {ticket.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-slate-800 text-sm">${ticket.total.toLocaleString()}</p>
-                      <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                        ticket.status === 'delivered' 
-                          ? 'bg-slate-200 text-slate-600' 
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {ticket.status === 'delivered' ? 'Despachado' : 'Pendiente'}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              {recentTickets.length === 0 ? (
+                <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
+                  <TicketIcon className="w-8 h-8 mb-2 opacity-30 text-slate-400" />
+                  <p className="font-bold text-xs text-slate-600">No hay tickets emitidos todavía</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Las ventas aparecerán aquí en tiempo real a medida que cobren las cajas.</p>
+                </div>
+              ) : (
+                <AnimatePresence>
+                  {recentTickets.map(ticket => (
+                    <motion.div
+                      key={ticket.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex justify-between items-center text-xs"
+                    >
+                      <div>
+                        <span className="font-mono font-bold text-slate-800">{ticket.id}</span>
+                        <p className="text-slate-500 text-[11px] mt-0.5">
+                          {ticket.cashierName} • {ticket.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-slate-800 text-sm">${ticket.total.toLocaleString()}</p>
+                        <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                          ticket.status === 'delivered' 
+                            ? 'bg-slate-200 text-slate-600' 
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {ticket.status === 'delivered' ? 'Despachado' : 'Pendiente'}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              )}
             </div>
           </div>
         </div>

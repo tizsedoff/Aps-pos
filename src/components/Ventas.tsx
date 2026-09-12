@@ -148,6 +148,15 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
           </span>
         </div>
 
+        {products.length === 0 && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <p>
+              <strong>Catálogo sin artículos:</strong> No hay productos precargados. El Administrador puede dar de alta los artículos y el stock desde las pestañas <strong>Artículos</strong> y <strong>Stock</strong>.
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleAddToCart} className="space-y-5 max-w-xl">
           {/* Selección de Producto */}
           <div className="space-y-1.5">
@@ -163,7 +172,11 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
               }}
               className="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-4 py-3.5 text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
             >
-              <option value="">-- Seleccione un artículo del catálogo --</option>
+              <option value="">
+                {products.length === 0 
+                  ? '-- No hay artículos cargados en el catálogo --' 
+                  : '-- Seleccione un artículo del catálogo --'}
+              </option>
               {products.map(p => {
                 const stock = stockData[p.id] ?? 0;
                 return (
@@ -235,20 +248,26 @@ export function Ventas({ products, stockData, currentUser, onCheckout }: VentasP
         <div className="mt-8 pt-6 border-t border-slate-100">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Accesos Rápidos de Bebidas / Minutas</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {products.filter(p => !p.requiresSide).slice(0, 6).map(p => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  setSelectedProductId(p.id);
-                  setSelectedSideId('');
-                }}
-                className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-colors flex flex-col justify-between"
-              >
-                <span className="text-sm font-semibold text-slate-700 truncate">{p.name}</span>
-                <span className="text-xs font-bold text-blue-600 mt-1">${p.price.toLocaleString()}</span>
-              </button>
-            ))}
+            {products.filter(p => !p.requiresSide).length === 0 ? (
+              <p className="text-xs text-slate-400 italic col-span-2 sm:col-span-3 py-2">
+                Los artículos de venta directa (bebidas, minutas, etc.) aparecerán aquí automáticamente una vez cargados en el catálogo.
+              </p>
+            ) : (
+              products.filter(p => !p.requiresSide).slice(0, 6).map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProductId(p.id);
+                    setSelectedSideId('');
+                  }}
+                  className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-colors flex flex-col justify-between"
+                >
+                  <span className="text-sm font-semibold text-slate-700 truncate">{p.name}</span>
+                  <span className="text-xs font-bold text-blue-600 mt-1">${p.price.toLocaleString()}</span>
+                </button>
+              ))
+            )}
           </div>
         </div>
       </div>

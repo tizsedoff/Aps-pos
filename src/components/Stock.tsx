@@ -18,6 +18,13 @@ export function Stock({ products, stockData, onUpdateStock, onAddBulkStock }: St
   const [incomeAmount, setIncomeAmount] = useState<number>(20);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
+  // Sincronizar si cambia la lista de productos
+  React.useEffect(() => {
+    if (!selectedProductId && products.length > 0) {
+      setSelectedProductId(products[0].id);
+    }
+  }, [products, selectedProductId]);
+
   // Estadísticas del stock
   const totalUnits = Object.values(stockData).reduce((sum, qty) => sum + qty, 0);
   const lowStockCount = products.filter(p => (stockData[p.id] ?? 0) > 0 && (stockData[p.id] ?? 0) < 20).length;
@@ -148,72 +155,88 @@ export function Stock({ products, stockData, onUpdateStock, onAddBulkStock }: St
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
-            {filteredProducts.map((p) => {
-              const qty = stockData[p.id] ?? 0;
-              const isOut = qty <= 0;
-              const isLow = qty > 0 && qty < 20;
+            {filteredProducts.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-12 text-center text-slate-400">
+                  <div className="w-14 h-14 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Archive className="w-7 h-7" />
+                  </div>
+                  <p className="font-bold text-base text-slate-700">No hay artículos en el inventario</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    {products.length === 0 
+                      ? "Cree artículos en la pestaña 'Artículos' y su inventario se administrará automáticamente desde aquí."
+                      : "No se encontraron artículos con los filtros aplicados."}
+                  </p>
+                </td>
+              </tr>
+            ) : (
+              filteredProducts.map((p) => {
+                const qty = stockData[p.id] ?? 0;
+                const isOut = qty <= 0;
+                const isLow = qty > 0 && qty < 20;
 
-              return (
-                <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="p-4 font-mono text-xs text-slate-400">{p.id}</td>
-                  <td className="p-4 font-bold text-slate-800">{p.name}</td>
-                  <td className="p-4">
-                    <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-semibold">
-                      {p.category}
-                    </span>
-                  </td>
-                  <td className="p-4 font-semibold text-slate-700">
-                    ${p.price.toLocaleString()}
-                  </td>
-                  <td className="p-4 text-center font-black text-lg text-slate-800">
-                    {qty}
-                  </td>
-                  <td className="p-4">
-                    {isOut ? (
-                      <span className="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
-                        Agotado
+                return (
+                  <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="p-4 font-mono text-xs text-slate-400">{p.id}</td>
+                    <td className="p-4 font-bold text-slate-800">{p.name}</td>
+                    <td className="p-4">
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-semibold">
+                        {p.category}
                       </span>
-                    ) : isLow ? (
-                      <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
-                        Bajo
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                        Normal
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-                      <button
-                        onClick={() => onUpdateStock(p.id, Math.max(0, qty - 1))}
-                        className="px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded shadow-xs text-xs"
-                        title="Restar 1"
-                      >
-                        -1
-                      </button>
-                      <button
-                        onClick={() => onUpdateStock(p.id, qty + 1)}
-                        className="px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded shadow-xs text-xs"
-                        title="Sumar 1"
-                      >
-                        +1
-                      </button>
-                      <button
-                        onClick={() => onAddBulkStock(p.id, 10)}
-                        className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded shadow-xs text-xs"
-                        title="Sumar lote de 10"
-                      >
-                        +10
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                    </td>
+                    <td className="p-4 font-semibold text-slate-700">
+                      ${p.price.toLocaleString()}
+                    </td>
+                    <td className="p-4 text-center font-black text-lg text-slate-800">
+                      {qty}
+                    </td>
+                    <td className="p-4">
+                      {isOut ? (
+                        <span className="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                          Agotado
+                        </span>
+                      ) : isLow ? (
+                        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                          Bajo
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                          Normal
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                        <button
+                          onClick={() => onUpdateStock(p.id, Math.max(0, qty - 1))}
+                          className="px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded shadow-xs text-xs"
+                          title="Restar 1"
+                        >
+                          -1
+                        </button>
+                        <button
+                          onClick={() => onUpdateStock(p.id, qty + 1)}
+                          className="px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded shadow-xs text-xs"
+                          title="Sumar 1"
+                        >
+                          +1
+                        </button>
+                        <button
+                          onClick={() => onAddBulkStock(p.id, 10)}
+                          className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded shadow-xs text-xs"
+                          title="Sumar lote de 10"
+                        >
+                          +10
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

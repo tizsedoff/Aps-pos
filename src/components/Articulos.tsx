@@ -12,13 +12,13 @@ interface ArticulosProps {
 export function Articulos({ products, onAddProduct, onDeleteProduct }: ArticulosProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
-  const [price, setPrice] = useState<number>(3000);
+  const [price, setPrice] = useState<number | ''>('');
   const [category, setCategory] = useState<'Plato' | 'Bebida' | 'Postre' | 'Minutas'>('Plato');
-  const [requiresSide, setRequiresSide] = useState(true);
+  const [requiresSide, setRequiresSide] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || price <= 0) return;
+    if (!name.trim() || !price || Number(price) <= 0) return;
 
     const newProd: Product = {
       id: `PROD-${Math.floor(100 + Math.random() * 900)}`,
@@ -30,9 +30,9 @@ export function Articulos({ products, onAddProduct, onDeleteProduct }: Articulos
 
     onAddProduct(newProd);
     setName('');
-    setPrice(3000);
+    setPrice('');
     setCategory('Plato');
-    setRequiresSide(true);
+    setRequiresSide(false);
     setIsModalOpen(false);
   };
 
@@ -70,43 +70,64 @@ export function Articulos({ products, onAddProduct, onDeleteProduct }: Articulos
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
-            {products.map((p) => (
-              <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                <td className="p-4 font-mono text-xs text-slate-400">{p.id}</td>
-                <td className="p-4 font-bold text-slate-800">{p.name}</td>
-                <td className="p-4">
-                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
-                    p.category === 'Plato' ? 'bg-amber-100 text-amber-800' :
-                    p.category === 'Bebida' ? 'bg-blue-100 text-blue-800' :
-                    p.category === 'Minutas' ? 'bg-orange-100 text-orange-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
-                    {p.category}
-                  </span>
-                </td>
-                <td className="p-4 text-slate-600">
-                  {p.requiresSide ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50">
-                      ✓ Obligatoria (Papas, etc.)
-                    </span>
-                  ) : (
-                    <span className="text-slate-400 text-xs">No aplica</span>
-                  )}
-                </td>
-                <td className="p-4 font-bold text-slate-800 text-right text-base">
-                  ${p.price.toLocaleString()}
-                </td>
-                <td className="p-4 text-center">
+            {products.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-12 text-center text-slate-400">
+                  <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <PackageSearch className="w-7 h-7" />
+                  </div>
+                  <p className="font-bold text-base text-slate-700">El catálogo de artículos está vacío</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">
+                    No hay productos precargados. Puede comenzar a cargar los artículos y precios de su evento.
+                  </p>
                   <button
-                    onClick={() => onDeleteProduct(p.id)}
-                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Eliminar artículo"
+                    onClick={() => setIsModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Plus className="w-4 h-4" />
+                    + Crear Primer Artículo
                   </button>
                 </td>
               </tr>
-            ))}
+            ) : (
+              products.map((p) => (
+                <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="p-4 font-mono text-xs text-slate-400">{p.id}</td>
+                  <td className="p-4 font-bold text-slate-800">{p.name}</td>
+                  <td className="p-4">
+                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                      p.category === 'Plato' ? 'bg-amber-100 text-amber-800' :
+                      p.category === 'Bebida' ? 'bg-blue-100 text-blue-800' :
+                      p.category === 'Minutas' ? 'bg-orange-100 text-orange-800' :
+                      'bg-purple-100 text-purple-800'
+                    }`}>
+                      {p.category}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-600">
+                    {p.requiresSide ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50">
+                        ✓ Obligatoria (Papas, etc.)
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">No aplica</span>
+                    )}
+                  </td>
+                  <td className="p-4 font-bold text-slate-800 text-right text-base">
+                    ${p.price.toLocaleString()}
+                  </td>
+                  <td className="p-4 text-center">
+                    <button
+                      onClick={() => onDeleteProduct(p.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Eliminar artículo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
