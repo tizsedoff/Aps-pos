@@ -1,0 +1,6 @@
+{
+  "name": "APS - Event POS",
+  "description": "Interactive preview of the APS Point of Sale system for massive events, featuring Cashier, Dispatch, and Admin interfaces.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
