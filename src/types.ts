@@ -7,6 +7,8 @@ export interface Product {
   allowedSideIds?: string[];
   dispatchStationId?: string;
   dispatchStationName?: string;
+  volumeUnit?: 'ml' | 'L';
+  volumeAmount?: number;
 }
 
 export interface Side {

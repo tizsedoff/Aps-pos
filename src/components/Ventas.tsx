@@ -236,9 +236,10 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
               ) : (
                 products.map(p => {
                   const stock = stockData[p.id] ?? 0;
+                  const volumeText = p.category === 'Bebida' && p.volumeUnit && p.volumeAmount ? ` [${p.volumeAmount}${p.volumeUnit}]` : '';
                   return (
                     <option key={p.id} value={p.id} disabled={stock <= 0}>
-                      {p.name} - ${p.price.toLocaleString()} {stock <= 0 ? '(AGOTADO)' : `(${stock} u.)`}
+                      {p.name}{volumeText} - ${p.price.toLocaleString()} {stock <= 0 ? '(AGOTADO)' : `(${stock} u.)`}
                     </option>
                   );
                 })
@@ -368,7 +369,14 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1 pr-2">
-                        <p className="font-bold text-slate-800 text-sm">{item.product.name}</p>
+                        <p className="font-bold text-slate-800 text-sm">
+                          {item.product.name}
+                          {item.product.category === 'Bebida' && item.product.volumeUnit && item.product.volumeAmount && (
+                            <span className="ml-1.5 text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                              {item.product.volumeAmount}{item.product.volumeUnit}
+                            </span>
+                          )}
+                        </p>
                         {item.side && (
                           <p className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-0.5">
                             <span className="text-blue-500">↳</span> c/ {item.side.name}
@@ -615,7 +623,14 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
                     return (
                       <div key={idx} className="flex justify-between items-start">
                         <div>
-                          <span className="font-bold text-slate-800">{item.quantity}x {item.product.name}</span>
+                          <span className="font-bold text-slate-800">
+                            {item.quantity}x {item.product.name}
+                            {item.product.category === 'Bebida' && item.product.volumeUnit && item.product.volumeAmount && (
+                              <span className="ml-1 text-[10px] font-bold text-slate-600 uppercase">
+                                [{item.product.volumeAmount}{item.product.volumeUnit}]
+                              </span>
+                            )}
+                          </span>
                           {item.side && (
                             <p className="text-xs text-slate-500">
                               c/ {item.side.name} {item.side.price > 0 ? `(+$${item.side.price.toLocaleString()})` : ''}

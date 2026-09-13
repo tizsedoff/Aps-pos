@@ -69,10 +69,28 @@ export const INITIAL_PRODUCTS: Product[] = [
     dispatchStationId: 'disp-1'
   },
   {
+    id: 'prod-5b',
+    name: 'Cerveza Tirada Artesanal IPA 1L',
+    category: 'Bebida',
+    price: 5800,
+    requiresSide: false,
+    dispatchStationName: 'Barra Principal',
+    dispatchStationId: 'disp-1'
+  },
+  {
     id: 'prod-6',
-    name: 'Fernet Branca con Cola',
+    name: 'Fernet Branca con Cola 500ml',
     category: 'Bebida',
     price: 3800,
+    requiresSide: false,
+    dispatchStationName: 'Barra Principal',
+    dispatchStationId: 'disp-1'
+  },
+  {
+    id: 'prod-6b',
+    name: 'Fernet Branca con Cola 1L',
+    category: 'Bebida',
+    price: 6500,
     requiresSide: false,
     dispatchStationName: 'Barra Principal',
     dispatchStationId: 'disp-1'
@@ -87,10 +105,28 @@ export const INITIAL_PRODUCTS: Product[] = [
     dispatchStationId: 'disp-1'
   },
   {
+    id: 'prod-7b',
+    name: 'Gaseosa Línea Cola 1.5L',
+    category: 'Bebida',
+    price: 3200,
+    requiresSide: false,
+    dispatchStationName: 'Barra Principal',
+    dispatchStationId: 'disp-1'
+  },
+  {
     id: 'prod-8',
     name: 'Agua Mineral sin Gas 500ml',
     category: 'Bebida',
     price: 1500,
+    requiresSide: false,
+    dispatchStationName: 'Barra Principal',
+    dispatchStationId: 'disp-1'
+  },
+  {
+    id: 'prod-8b',
+    name: 'Agua Mineral sin Gas 1L',
+    category: 'Bebida',
+    price: 2500,
     requiresSide: false,
     dispatchStationName: 'Barra Principal',
     dispatchStationId: 'disp-1'
@@ -103,9 +139,13 @@ export const INITIAL_STOCK: Record<string, number> = {
   'prod-3': 50,
   'prod-4': 60,
   'prod-5': 120,
+  'prod-5b': 80,
   'prod-6': 95,
+  'prod-6b': 60,
   'prod-7': 80,
-  'prod-8': 70
+  'prod-7b': 45,
+  'prod-8': 70,
+  'prod-8b': 50
 };
 
 export const INITIAL_TICKETS: Ticket[] = [

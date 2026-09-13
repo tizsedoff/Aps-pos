@@ -28,8 +28,8 @@ export function ActaCierreGeneralModal({ closure, onClose }: ActaCierreGeneralMo
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:bg-white print:p-0">
+      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-8 print:shadow-none print:border-none print:my-0 print:max-w-full">
         
         {/* Barra superior de control (NO imprimible) */}
         <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center print:hidden">

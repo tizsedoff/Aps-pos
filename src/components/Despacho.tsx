@@ -261,7 +261,14 @@ export function Despacho({ tickets, dispatchStations, currentUser, onDeliver }: 
                         <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-xl text-lg sm:text-xl font-black">
                           {item.quantity}x
                         </span>
-                        <span>{item.product.name}</span>
+                        <span className="flex items-center">
+                          {item.product.name}
+                          {item.product.category === 'Bebida' && item.product.volumeUnit && item.product.volumeAmount && (
+                            <span className="ml-2 text-sm bg-blue-100 text-blue-800 font-black px-2 py-0.5 rounded-lg">
+                              {item.product.volumeAmount}{item.product.volumeUnit}
+                            </span>
+                          )}
+                        </span>
                       </div>
                       {item.side && (
                         <span className="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">

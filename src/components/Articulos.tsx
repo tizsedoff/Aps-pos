@@ -47,6 +47,8 @@ export function Articulos({
   const [prodDispatchStation, setProdDispatchStation] = useState<string>('');
   const [prodRequiresSide, setProdRequiresSide] = useState(false);
   const [prodAllowedSideIds, setProdAllowedSideIds] = useState<string[]>([]);
+  const [prodVolumeUnit, setProdVolumeUnit] = useState<'ml' | 'L' | ''>('');
+  const [prodVolumeAmount, setProdVolumeAmount] = useState<number | ''>('');
 
   // Estado Modal de Guarnición
   const [isSideModalOpen, setIsSideModalOpen] = useState(false);
@@ -74,6 +76,8 @@ export function Articulos({
     setProdDispatchStation(suggestStationForCategory('Plato'));
     setProdRequiresSide(false);
     setProdAllowedSideIds([]);
+    setProdVolumeUnit('');
+    setProdVolumeAmount('');
     setIsProductModalOpen(true);
   };
 
@@ -87,6 +91,8 @@ export function Articulos({
     setProdDispatchStation(currentStation);
     setProdRequiresSide(Boolean(product.requiresSide));
     setProdAllowedSideIds(product.allowedSideIds ? [...product.allowedSideIds] : []);
+    setProdVolumeUnit(product.volumeUnit || '');
+    setProdVolumeAmount(product.volumeAmount || '');
     setIsProductModalOpen(true);
   };
 
@@ -99,6 +105,10 @@ export function Articulos({
     const stationId = matchedStation?.id || undefined;
     const stationName = prodDispatchStation.trim() || suggestStationForCategory(prodCategory);
 
+    const isBebida = prodCategory === 'Bebida';
+    const volumeUnitVal = (isBebida && prodVolumeUnit) ? prodVolumeUnit : undefined;
+    const volumeAmountVal = (isBebida && prodVolumeAmount) ? Number(prodVolumeAmount) : undefined;
+
     if (editingProduct) {
       const updated: Product = {
         ...editingProduct,
@@ -109,6 +119,8 @@ export function Articulos({
         dispatchStationName: stationName,
         requiresSide: prodCategory === 'Plato' ? prodRequiresSide : false,
         allowedSideIds: (prodCategory === 'Plato' && prodRequiresSide) ? prodAllowedSideIds : undefined,
+        volumeUnit: volumeUnitVal as any,
+        volumeAmount: volumeAmountVal,
       };
       onUpdateProduct(updated);
     } else {
@@ -121,6 +133,8 @@ export function Articulos({
         dispatchStationName: stationName,
         requiresSide: prodCategory === 'Plato' ? prodRequiresSide : false,
         allowedSideIds: (prodCategory === 'Plato' && prodRequiresSide) ? prodAllowedSideIds : undefined,
+        volumeUnit: volumeUnitVal as any,
+        volumeAmount: volumeAmountVal,
       };
       onAddProduct(newProd);
     }
@@ -323,7 +337,14 @@ export function Articulos({
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-4 font-mono text-xs text-slate-400">{p.id}</td>
-                      <td className="p-4 font-bold text-slate-800">{p.name}</td>
+                      <td className="p-4 font-bold text-slate-800">
+                        {p.name}
+                        {p.category === 'Bebida' && p.volumeUnit && p.volumeAmount && (
+                          <span className="ml-2 inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-sm">
+                            {p.volumeAmount}{p.volumeUnit}
+                          </span>
+                        )}
+                      </td>
                       <td className="p-4">
                         <span
                           className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
@@ -581,6 +602,41 @@ export function Articulos({
                     Al cobrarse este artículo, el comprobante se enviará a este puesto de entrega (ej: Comida a Cocina, Bebidas a Barra).
                   </p>
                 </div>
+
+                {prodCategory === 'Bebida' && (
+                  <div className="p-3.5 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-3">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">
+                      Volumen de Bebida (Opcional)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <select
+                          value={prodVolumeUnit}
+                          onChange={(e) => setProdVolumeUnit(e.target.value as 'ml' | 'L' | '')}
+                          className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        >
+                          <option value="">Sin especificar</option>
+                          <option value="ml">Mililitros (ml)</option>
+                          <option value="L">Litros (L)</option>
+                        </select>
+                      </div>
+                      
+                      {prodVolumeUnit && (
+                        <div className="flex-1">
+                          <input
+                            type="number"
+                            min="1"
+                            step="any"
+                            placeholder={prodVolumeUnit === 'ml' ? 'Ej: 500' : 'Ej: 1.5'}
+                            value={prodVolumeAmount}
+                            onChange={(e) => setProdVolumeAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {prodCategory === 'Plato' && (
                   <div className="space-y-3">

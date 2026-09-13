@@ -84,7 +84,7 @@ export function CierreCaja({ tickets, currentUser, onBack, onLogout, salesBoxes 
   const today = new Date();
 
   return (
-    <div className="h-full flex flex-col items-center bg-slate-100 overflow-y-auto pb-10">
+    <div className="h-full flex flex-col items-center bg-slate-100 overflow-y-auto pb-10 print:overflow-visible print:h-auto print:bg-white">
       
       {/* Controles NO imprimibles */}
       <div className="w-full max-w-2xl flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6 print:hidden">
