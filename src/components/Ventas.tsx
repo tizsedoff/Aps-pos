@@ -136,7 +136,7 @@ export function Ventas({ products, sides, stockData, currentUser, onCheckout }: 
       status: 'pending',
       createdAt: new Date(),
       cashierName: currentUser.name,
-      boxId: currentUser.role === 'admin' ? 'CAJA-ADMIN' : 'CAJA-01',
+      boxId: currentUser.boxId || (currentUser.role === 'admin' ? 'CAJA-ADMIN' : 'CAJA-01'),
       caeStatus: 'processing'
     };
 

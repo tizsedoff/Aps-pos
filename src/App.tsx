@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ViewScreen, User, Product, Ticket, Side } from './types';
-import { INITIAL_PRODUCTS, INITIAL_STOCK, INITIAL_TICKETS, INITIAL_SIDES } from './data';
+import { ViewScreen, User, Product, Ticket, Side, SalesBox, DispatchStation } from './types';
+import { INITIAL_PRODUCTS, INITIAL_STOCK, INITIAL_TICKETS, INITIAL_SIDES, INITIAL_SALES_BOXES, INITIAL_DISPATCH_STATIONS } from './data';
 import { Ventas } from './components/Ventas';
 import { Despacho } from './components/Despacho';
 import { Stock } from './components/Stock';
@@ -8,8 +8,22 @@ import { Articulos } from './components/Articulos';
 import { Admin } from './components/Admin';
 import { CierreCaja } from './components/CierreCaja';
 import { Login } from './components/Login';
+import { Terminales } from './components/Terminales';
 import { ApsLogo } from './components/ApsLogo';
-import { Store, ReceiptText, ScanLine, PackageSearch, Archive, BarChart3, LogOut, ShieldCheck } from 'lucide-react';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { 
+  ReceiptText, 
+  ScanLine, 
+  PackageSearch, 
+  Archive, 
+  BarChart3, 
+  LogOut, 
+  ShieldCheck, 
+  ShoppingCart, 
+  KeyRound,
+  Calculator,
+  Store
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -30,6 +44,8 @@ export default function App() {
       return 'ventas';
     }
   });
+
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // Guardar sesión y vista en localStorage
   React.useEffect(() => {
@@ -54,14 +70,55 @@ export default function App() {
     }
   }, [currentView, currentUser]);
 
-  // Si el rol es cajero y está en una vista de admin, redirigir a ventas
+  // Si el rol es cajero, no permitir acceder a vistas ajenas a ventas o cierre
   React.useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin' && ['stock', 'articulos', 'metricas'].includes(currentView)) {
-      setCurrentView('ventas');
+    if (currentUser) {
+      if (currentUser.role === 'cajero' && currentView !== 'ventas' && currentView !== 'cierre') {
+        setCurrentView('ventas');
+      } else if (currentUser.role === 'despacho' && currentView !== 'entregas') {
+        setCurrentView('entregas');
+      }
     }
   }, [currentUser, currentView]);
 
-  // Estado unificado y compartido en tiempo real (iniciando totalmente limpio)
+  // Estado de Cajas de Ventas (Puntos de Cobro) persistido
+  const [salesBoxes, setSalesBoxes] = useState<SalesBox[]>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_sales_boxes');
+      return saved ? JSON.parse(saved) : INITIAL_SALES_BOXES;
+    } catch {
+      return INITIAL_SALES_BOXES;
+    }
+  });
+
+  // Estado de Puestos de Entrega / Despacho persistido
+  const [dispatchStations, setDispatchStations] = useState<DispatchStation[]>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_dispatch_stations');
+      return saved ? JSON.parse(saved) : INITIAL_DISPATCH_STATIONS;
+    } catch {
+      return INITIAL_DISPATCH_STATIONS;
+    }
+  });
+
+  // Guardar Cajas y Puestos en localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_sales_boxes', JSON.stringify(salesBoxes));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [salesBoxes]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_dispatch_stations', JSON.stringify(dispatchStations));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [dispatchStations]);
+
+  // Estado unificado de Productos
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem('aps_pos_products');
@@ -93,19 +150,21 @@ export default function App() {
   const [tickets, setTickets] = useState<Ticket[]>(() => {
     try {
       const saved = localStorage.getItem('aps_pos_tickets');
-      if (!saved) return INITIAL_TICKETS;
-      const parsed = JSON.parse(saved);
-      return parsed.map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        deliveredAt: t.deliveredAt ? new Date(t.deliveredAt) : undefined,
-      }));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((t: any) => ({
+          ...t,
+          createdAt: new Date(t.createdAt),
+          deliveredAt: t.deliveredAt ? new Date(t.deliveredAt) : undefined
+        }));
+      }
+      return INITIAL_TICKETS;
     } catch {
       return INITIAL_TICKETS;
     }
   });
 
-  // Guardar en localStorage cuando cambian los datos
+  // Guardar datos en localStorage ante cualquier cambio
   React.useEffect(() => {
     try {
       localStorage.setItem('aps_pos_products', JSON.stringify(products));
@@ -138,55 +197,87 @@ export default function App() {
     }
   }, [tickets]);
 
-  // Manejador de nueva venta: descuenta stock automáticamente y agrega a la lista de tickets
-  const handleNewTicket = (newTicket: Ticket) => {
-    // 1. Agregar a la lista de tickets
+  // Manejador para login con vista inicial según perfil
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    if (user.role === 'cajero') {
+      setCurrentView('ventas');
+    } else if (user.role === 'despacho') {
+      setCurrentView('entregas');
+    } else {
+      setCurrentView('metricas');
+    }
+  };
+
+  // Manejador de ventas
+  const handleCheckout = (newTicket: Ticket) => {
     setTickets(prev => [newTicket, ...prev]);
 
-    // 2. Descontar el stock en tiempo real
+    // Descontar del stock global
     setStockData(prev => {
       const updated = { ...prev };
       newTicket.items.forEach(item => {
-        const currentQty = updated[item.product.id] ?? 0;
+        const currentQty = updated[item.product.id] || 0;
         updated[item.product.id] = Math.max(0, currentQty - item.quantity);
       });
       return updated;
     });
   };
 
-  // Manejador de entrega en Despacho: marca el ticket como entregado
+  // Manejador de despacho
   const handleDeliverTicket = (ticketId: string) => {
-    setTickets(prev => prev.map(t => {
-      if (t.id === ticketId) {
+    setTickets(prev => prev.map(ticket => {
+      if (ticket.id === ticketId) {
         return {
-          ...t,
+          ...ticket,
           status: 'delivered',
           deliveredAt: new Date()
         };
       }
-      return t;
+      return ticket;
     }));
+  };
+
+  // Manejadores de Cajas de Ventas (Crear y Eliminar)
+  const handleAddSalesBox = (box: SalesBox) => {
+    setSalesBoxes(prev => [...prev, box]);
+  };
+
+  const handleDeleteSalesBox = (boxId: string) => {
+    setSalesBoxes(prev => prev.filter(b => b.id !== boxId));
+  };
+
+  // Manejadores de Puestos de Entrega (Crear y Eliminar)
+  const handleAddDispatchStation = (station: DispatchStation) => {
+    setDispatchStations(prev => [...prev, station]);
+  };
+
+  const handleDeleteDispatchStation = (stationId: string) => {
+    setDispatchStations(prev => prev.filter(s => s.id !== stationId));
   };
 
   // Manejadores de Stock (ADMIN)
-  const handleUpdateStock = (productId: string, newQuantity: number) => {
+  const handleUpdateStock = (productId: string, newStock: number) => {
     setStockData(prev => ({
       ...prev,
-      [productId]: newQuantity
+      [productId]: Math.max(0, newStock)
     }));
   };
 
-  const handleAddBulkStock = (productId: string, addQuantity: number) => {
+  const handleAddBulkStock = (productId: string, amountToAdd: number) => {
     setStockData(prev => ({
       ...prev,
-      [productId]: (prev[productId] ?? 0) + addQuantity
+      [productId]: Math.max(0, (prev[productId] || 0) + amountToAdd)
     }));
   };
 
-  // Manejadores de Artículos (ADMIN)
+  // Manejadores de Productos (ADMIN)
   const handleAddProduct = (newProduct: Product) => {
     setProducts(prev => [...prev, newProduct]);
-    setStockData(prev => ({ ...prev, [newProduct.id]: 0 })); // Inicia con 0 stock hasta que se cargue
+    setStockData(prev => ({
+      ...prev,
+      [newProduct.id]: 50
+    }));
   };
 
   const handleUpdateProduct = (updatedProduct: Product) => {
@@ -195,6 +286,11 @@ export default function App() {
 
   const handleDeleteProduct = (productId: string) => {
     setProducts(prev => prev.filter(p => p.id !== productId));
+    setStockData(prev => {
+      const copy = { ...prev };
+      delete copy[productId];
+      return copy;
+    });
   };
 
   // Manejadores de Guarniciones (ADMIN)
@@ -208,7 +304,6 @@ export default function App() {
 
   const handleDeleteSide = (sideId: string) => {
     setSides(prev => prev.filter(s => s.id !== sideId));
-    // Limpiar de los productos que la tenían asociada
     setProducts(prev => prev.map(p => {
       if (p.allowedSideIds?.includes(sideId)) {
         return {
@@ -233,132 +328,240 @@ export default function App() {
   };
 
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} />;
+    return (
+      <Login 
+        onLogin={handleLogin} 
+        salesBoxes={salesBoxes}
+        dispatchStations={dispatchStations}
+      />
+    );
   }
 
   const isAdmin = currentUser.role === 'admin';
+  const isCajero = currentUser.role === 'cajero';
+  const isDespacho = currentUser.role === 'despacho';
 
   return (
     <div className="h-screen flex flex-col bg-slate-100 text-slate-800 font-sans overflow-hidden print:h-auto print:bg-white print:overflow-visible">
       
-      {/* Barra de Navegación Superior: limpia, gris y blanca descansadora a la vista */}
-      <nav className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 shadow-xs z-20 print:hidden">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <ApsLogo className="w-10 h-10 drop-shadow-xs shrink-0" />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-xl font-black tracking-tight leading-none text-slate-900">APS</h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                  Event POS
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">Control de Ventas y Despacho</p>
+      {/* Barra de Navegación Superior adaptable según perfil */}
+      <nav className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shrink-0 shadow-xs z-20 print:hidden">
+        {/* Identidad APS */}
+        <div className="flex items-center gap-3">
+          <ApsLogo className="w-9 h-9 drop-shadow-xs shrink-0" />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-lg font-black tracking-tight leading-none text-slate-900">APS</h1>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                POS
+              </span>
             </div>
-          </div>
-
-          {/* Selector de Vistas / Pestañas */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80">
-            {/* Pestaña: Ventas */}
-            <button
-              id="nav-ventas"
-              onClick={() => setCurrentView('ventas')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                currentView === 'ventas' 
-                  ? 'bg-white text-blue-600 shadow-xs ring-1 ring-slate-200' 
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-              }`}
-            >
-              <ReceiptText className="w-4 h-4" />
-              Ventas (Caja)
-            </button>
-
-            {/* Pestaña: Zona de Entregas (Disponible para todos) */}
-            <button
-              id="nav-entregas"
-              onClick={() => setCurrentView('entregas')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                currentView === 'entregas' 
-                  ? 'bg-white text-emerald-600 shadow-xs ring-1 ring-slate-200' 
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-              }`}
-            >
-              <ScanLine className="w-4 h-4" />
-              Zona de Entregas
-            </button>
-            
-            {/* Pestañas Exclusivas para ADMIN */}
-            {isAdmin && (
-              <>
-                <button
-                  id="nav-stock"
-                  onClick={() => setCurrentView('stock')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                    currentView === 'stock' 
-                      ? 'bg-white text-teal-600 shadow-xs ring-1 ring-slate-200' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                  }`}
-                >
-                  <Archive className="w-4 h-4" />
-                  Stock
-                </button>
-
-                <button
-                  id="nav-articulos"
-                  onClick={() => setCurrentView('articulos')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                    currentView === 'articulos' 
-                      ? 'bg-white text-indigo-600 shadow-xs ring-1 ring-slate-200' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                  }`}
-                >
-                  <PackageSearch className="w-4 h-4" />
-                  Artículos
-                </button>
-
-                <button
-                  id="nav-metricas"
-                  onClick={() => setCurrentView('metricas')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                    currentView === 'metricas' 
-                      ? 'bg-white text-purple-600 shadow-xs ring-1 ring-slate-200' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                  }`}
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  Métricas Evento
-                </button>
-              </>
-            )}
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5 hidden sm:block">Control de Eventos</p>
           </div>
         </div>
 
-        {/* Perfil Activo y Botón de Salida */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <div className="flex items-center justify-end gap-1.5">
-              {isAdmin && <ShieldCheck className="w-4 h-4 text-indigo-600" />}
-              <p className="text-sm font-bold text-slate-800 leading-none">{currentUser.name}</p>
-            </div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-              {isAdmin ? 'ADMINISTRADOR GENERAL' : 'OPERADOR DE CAJA'}
-            </p>
-          </div>
+        {/* CENTRO: DISTRIBUCIÓN ESPECÍFICA SEGÚN EL PERFIL ACTIVO */}
 
-          <button
-            id="btn-logout"
-            onClick={() => setCurrentView('cierre')}
-            title="Cierre de Caja y Fin de Turno"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 text-xs font-bold transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Cierre de Caja</span>
-          </button>
+        {/* 1. PERFIL: CAJA DE VENTAS (Aislado y Enfocado Exclusivamente en Vender) */}
+        {isCajero && (
+          <div className="flex items-center gap-2 bg-blue-50/70 border border-blue-200/80 px-3 py-1.5 rounded-xl">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <ShoppingCart className="w-4 h-4 text-blue-600" />
+            <span className="text-xs font-black text-blue-900 uppercase tracking-wider">
+              Caja de Ventas
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="text-xs font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-100 font-mono">
+              {currentUser.boxId || 'CAJA-01'}
+            </span>
+            <span className="text-xs font-semibold text-slate-600 hidden md:inline">
+              • {currentUser.name}
+            </span>
+          </div>
+        )}
+
+        {/* 2. PERFIL: ZONA DE ENTREGAS */}
+        {isDespacho && (
+          <div className="flex items-center gap-2 bg-emerald-50/70 border border-emerald-200/80 px-3 py-1.5 rounded-xl">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <ScanLine className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-black text-emerald-900 uppercase tracking-wider">
+              Zona de Entregas & Despacho
+            </span>
+            <span className="text-xs font-semibold text-slate-600 hidden md:inline">
+              • {currentUser.name}
+            </span>
+          </div>
+        )}
+
+        {/* 3. PERFIL: ADMINISTRADOR (Tiene Selector de Pestañas Completo con Terminales) */}
+        {isAdmin && (
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+            <button
+              id="nav-metricas"
+              onClick={() => setCurrentView('metricas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                currentView === 'metricas' 
+                  ? 'bg-white text-purple-700 shadow-xs ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Métricas
+            </button>
+
+            <button
+              id="nav-terminales"
+              onClick={() => setCurrentView('terminales')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                currentView === 'terminales' 
+                  ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              Puestos & Cajas
+            </button>
+
+            <button
+              id="nav-articulos"
+              onClick={() => setCurrentView('articulos')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                currentView === 'articulos' 
+                  ? 'bg-white text-indigo-700 shadow-xs ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <PackageSearch className="w-3.5 h-3.5" />
+              Artículos
+            </button>
+
+            <button
+              id="nav-stock"
+              onClick={() => setCurrentView('stock')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                currentView === 'stock' 
+                  ? 'bg-white text-teal-700 shadow-xs ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              Stock
+            </button>
+
+            <button
+              id="nav-ventas"
+              onClick={() => setCurrentView('ventas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                currentView === 'ventas' 
+                  ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <ReceiptText className="w-3.5 h-3.5" />
+              Caja
+            </button>
+
+            <button
+              id="nav-entregas"
+              onClick={() => setCurrentView('entregas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                currentView === 'entregas' 
+                  ? 'bg-white text-emerald-700 shadow-xs ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <ScanLine className="w-3.5 h-3.5" />
+              Entregas
+            </button>
+          </div>
+        )}
+
+        {/* ACCIONES Y BOTONES DERECHA */}
+        <div className="flex items-center gap-2">
+          {/* Botones para Cajero */}
+          {isCajero && (
+            <>
+              <button
+                id="btn-cierre-caja"
+                onClick={() => setCurrentView('cierre')}
+                title="Arqueo y Cierre de Turno"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  currentView === 'cierre'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/80'
+                }`}
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span>Cierre de Caja</span>
+              </button>
+
+              <button
+                id="btn-logout"
+                onClick={handleLogout}
+                title="Salir del turno"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 text-xs font-bold transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            </>
+          )}
+
+          {/* Botón para Despacho */}
+          {isDespacho && (
+            <button
+              id="btn-logout"
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 text-xs font-bold transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Cerrar Sesión</span>
+            </button>
+          )}
+
+          {/* Botones para Administrador */}
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setIsChangePasswordOpen(true)}
+                title="Cambiar Contraseña de Administrador"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/70 text-xs font-bold transition-colors shadow-xs"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Seguridad</span>
+              </button>
+
+              <button
+                id="btn-cierre-global"
+                onClick={() => setCurrentView('cierre')}
+                title="Auditoría de Cierre de Caja"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  currentView === 'cierre'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                }`}
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cierres</span>
+              </button>
+
+              <button
+                id="btn-logout"
+                onClick={handleLogout}
+                title="Cerrar sesión de Administrador"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-200 text-xs font-bold transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
       {/* Área de Trabajo Principal */}
-      <main className="flex-1 overflow-hidden p-6 relative print:p-0 print:overflow-visible print:block">
+      <main className="flex-1 overflow-hidden p-4 sm:p-6 relative print:p-0 print:overflow-visible print:block">
         <AnimatePresence mode="wait">
           {/* VISTA 1: VENTAS (CAJA) */}
           {currentView === 'ventas' && (
@@ -375,7 +578,7 @@ export default function App() {
                 sides={sides}
                 stockData={stockData}
                 currentUser={currentUser}
-                onCheckout={handleNewTicket}
+                onCheckout={handleCheckout}
               />
             </motion.div>
           )}
@@ -397,7 +600,29 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* VISTA 3: STOCK (ADMIN) */}
+          {/* VISTA 3: TERMINALES Y PUESTOS (ADMIN) */}
+          {isAdmin && currentView === 'terminales' && (
+            <motion.div
+              key="terminales"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className="h-full max-w-6xl mx-auto"
+            >
+              <Terminales 
+                salesBoxes={salesBoxes}
+                dispatchStations={dispatchStations}
+                tickets={tickets}
+                onAddSalesBox={handleAddSalesBox}
+                onDeleteSalesBox={handleDeleteSalesBox}
+                onAddDispatchStation={handleAddDispatchStation}
+                onDeleteDispatchStation={handleDeleteDispatchStation}
+              />
+            </motion.div>
+          )}
+
+          {/* VISTA 4: STOCK (ADMIN) */}
           {isAdmin && currentView === 'stock' && (
             <motion.div
               key="stock"
@@ -416,7 +641,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* VISTA 4: ARTICULOS (ADMIN) */}
+          {/* VISTA 5: ARTICULOS (ADMIN) */}
           {isAdmin && currentView === 'articulos' && (
             <motion.div
               key="articulos"
@@ -439,7 +664,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* VISTA 5: METRICAS / ADMIN DASHBOARD */}
+          {/* VISTA 6: METRICAS / ADMIN DASHBOARD */}
           {isAdmin && currentView === 'metricas' && (
             <motion.div
               key="metricas"
@@ -449,11 +674,15 @@ export default function App() {
               transition={{ duration: 0.15 }}
               className="h-full max-w-6xl mx-auto"
             >
-              <Admin tickets={tickets} />
+              <Admin 
+                tickets={tickets} 
+                salesBoxes={salesBoxes}
+                onNavigateToTerminales={() => setCurrentView('terminales')}
+              />
             </motion.div>
           )}
 
-          {/* VISTA 6: CIERRE DE CAJA */}
+          {/* VISTA 7: CIERRE DE CAJA */}
           {currentView === 'cierre' && (
             <motion.div
               key="cierre"
@@ -466,13 +695,28 @@ export default function App() {
               <CierreCaja 
                 tickets={tickets} 
                 currentUser={currentUser}
-                onBack={() => setCurrentView('ventas')}
+                salesBoxes={salesBoxes}
+                onBack={() => {
+                  if (currentUser.role === 'cajero') {
+                    setCurrentView('ventas');
+                  } else if (currentUser.role === 'despacho') {
+                    setCurrentView('entregas');
+                  } else {
+                    setCurrentView('metricas');
+                  }
+                }}
                 onLogout={handleLogout}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      {/* Modal Global para Cambiar Contraseña de Administrador */}
+      <ChangePasswordModal 
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </div>
   );
 }

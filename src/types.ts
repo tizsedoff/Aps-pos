@@ -32,10 +32,25 @@ export interface Ticket {
   caeStatus: 'processing' | 'approved';
 }
 
-export type ViewScreen = 'ventas' | 'entregas' | 'articulos' | 'stock' | 'metricas' | 'cierre';
+export type ViewScreen = 'ventas' | 'entregas' | 'articulos' | 'stock' | 'metricas' | 'cierre' | 'terminales';
+
+export interface SalesBox {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface DispatchStation {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export type UserRole = 'admin' | 'cajero' | 'despacho';
 
 export interface User {
   id: string;
   name: string;
-  role: 'admin' | 'cajero';
+  role: UserRole;
+  boxId?: string;
 }
