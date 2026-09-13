@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ViewScreen, User, Product, Ticket, Side, SalesBox, DispatchStation } from './types';
-import { INITIAL_PRODUCTS, INITIAL_STOCK, INITIAL_TICKETS, INITIAL_SIDES, INITIAL_SALES_BOXES, INITIAL_DISPATCH_STATIONS } from './data';
+import { ViewScreen, User, Product, Ticket, Side, SalesBox, DispatchStation, GeneralClosure } from './types';
+import { INITIAL_PRODUCTS, INITIAL_STOCK, INITIAL_TICKETS, INITIAL_SIDES, INITIAL_SALES_BOXES, INITIAL_DISPATCH_STATIONS, INITIAL_GENERAL_CLOSURES } from './data';
 import { Ventas } from './components/Ventas';
 import { Despacho } from './components/Despacho';
 import { Stock } from './components/Stock';
@@ -197,6 +197,102 @@ export default function App() {
     }
   }, [tickets]);
 
+  // Estado de Cierres Generales (Consolidados del Admin)
+  const [generalClosures, setGeneralClosures] = useState<GeneralClosure[]>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_general_closures');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((c: any) => ({
+          ...c,
+          closedAt: new Date(c.closedAt)
+        }));
+      }
+      return INITIAL_GENERAL_CLOSURES;
+    } catch {
+      return INITIAL_GENERAL_CLOSURES;
+    }
+  });
+
+  // Timestamp del último Cierre General para calcular los tickets de la jornada actual
+  const [lastClosureDate, setLastClosureDate] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('aps_pos_last_closure_date');
+    } catch {
+      return null;
+    }
+  });
+
+  // Guardar cierres en localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_general_closures', JSON.stringify(generalClosures));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [generalClosures]);
+
+  React.useEffect(() => {
+    try {
+      if (lastClosureDate) {
+        localStorage.setItem('aps_pos_last_closure_date', lastClosureDate);
+      } else {
+        localStorage.removeItem('aps_pos_last_closure_date');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [lastClosureDate]);
+
+  // Manejador del Cierre General de Jornada
+  const handlePerformGeneralClosure = (notes?: string): GeneralClosure => {
+    const closureTime = lastClosureDate ? new Date(lastClosureDate).getTime() : 0;
+    const currentDayTickets = tickets.filter(t => new Date(t.createdAt).getTime() > closureTime);
+
+    const totalSales = currentDayTickets.reduce((sum, t) => sum + t.total, 0);
+    const deliveredCount = currentDayTickets.filter(t => t.status === 'delivered').length;
+    const pendingCount = currentDayTickets.filter(t => t.status === 'pending').length;
+
+    // Desglose por caja
+    const breakdownByBox: Record<string, number> = {};
+    salesBoxes.forEach(b => { breakdownByBox[b.name] = 0; });
+    currentDayTickets.forEach(t => {
+      const bId = t.boxId || 'CAJA-01';
+      breakdownByBox[bId] = (breakdownByBox[bId] || 0) + t.total;
+    });
+
+    // Desglose por puesto de despacho
+    const breakdownByStation: Record<string, number> = {};
+    dispatchStations.forEach(s => { breakdownByStation[s.name] = 0; });
+    currentDayTickets.forEach(t => {
+      const sName = t.targetStation || 'General';
+      breakdownByStation[sName] = (breakdownByStation[sName] || 0) + t.total;
+    });
+
+    const now = new Date();
+    const dateFormatted = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const closureId = `CG-${dateFormatted}-${String(generalClosures.length + 1).padStart(3, '0')}`;
+
+    const newClosure: GeneralClosure = {
+      id: closureId,
+      closedAt: now,
+      dateString: now.toLocaleDateString('es-AR'),
+      totalSales,
+      ticketsCount: currentDayTickets.length,
+      deliveredTicketsCount: deliveredCount,
+      pendingTicketsCount: pendingCount,
+      adminName: currentUser?.name || 'Administrador General',
+      breakdownByBox,
+      breakdownByStation,
+      notes
+    };
+
+    setGeneralClosures(prev => [newClosure, ...prev]);
+    setLastClosureDate(now.toISOString());
+
+    return newClosure;
+  };
+
   // Manejador para login con vista inicial según perfil
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -209,16 +305,19 @@ export default function App() {
     }
   };
 
-  // Manejador de ventas
-  const handleCheckout = (newTicket: Ticket) => {
-    setTickets(prev => [newTicket, ...prev]);
+  // Manejador de ventas (acepta un ticket o múltiples si se dividieron por puesto)
+  const handleCheckout = (newTicket: Ticket | Ticket[]) => {
+    const ticketsToAdd = Array.isArray(newTicket) ? newTicket : [newTicket];
+    setTickets(prev => [...ticketsToAdd, ...prev]);
 
     // Descontar del stock global
     setStockData(prev => {
       const updated = { ...prev };
-      newTicket.items.forEach(item => {
-        const currentQty = updated[item.product.id] || 0;
-        updated[item.product.id] = Math.max(0, currentQty - item.quantity);
+      ticketsToAdd.forEach(ticket => {
+        ticket.items.forEach(item => {
+          const currentQty = updated[item.product.id] || 0;
+          updated[item.product.id] = Math.max(0, currentQty - item.quantity);
+        });
       });
       return updated;
     });
@@ -238,18 +337,29 @@ export default function App() {
     }));
   };
 
-  // Manejadores de Cajas de Ventas (Crear y Eliminar)
+  // Manejadores de Cajas de Ventas (Crear, Modificar y Eliminar)
   const handleAddSalesBox = (box: SalesBox) => {
     setSalesBoxes(prev => [...prev, box]);
+  };
+
+  const handleUpdateSalesBox = (updatedBox: SalesBox, oldName?: string) => {
+    setSalesBoxes(prev => prev.map(b => b.id === updatedBox.id ? updatedBox : b));
+    if (oldName && oldName !== updatedBox.name) {
+      setTickets(prev => prev.map(t => t.boxId === oldName ? { ...t, boxId: updatedBox.name } : t));
+    }
   };
 
   const handleDeleteSalesBox = (boxId: string) => {
     setSalesBoxes(prev => prev.filter(b => b.id !== boxId));
   };
 
-  // Manejadores de Puestos de Entrega (Crear y Eliminar)
+  // Manejadores de Puestos de Entrega (Crear, Modificar y Eliminar)
   const handleAddDispatchStation = (station: DispatchStation) => {
     setDispatchStations(prev => [...prev, station]);
+  };
+
+  const handleUpdateDispatchStation = (updatedStation: DispatchStation) => {
+    setDispatchStations(prev => prev.map(s => s.id === updatedStation.id ? updatedStation : s));
   };
 
   const handleDeleteDispatchStation = (stationId: string) => {
@@ -578,6 +688,7 @@ export default function App() {
                 sides={sides}
                 stockData={stockData}
                 currentUser={currentUser}
+                dispatchStations={dispatchStations}
                 onCheckout={handleCheckout}
               />
             </motion.div>
@@ -595,6 +706,8 @@ export default function App() {
             >
               <Despacho 
                 tickets={tickets}
+                dispatchStations={dispatchStations}
+                currentUser={currentUser}
                 onDeliver={handleDeliverTicket}
               />
             </motion.div>
@@ -615,8 +728,10 @@ export default function App() {
                 dispatchStations={dispatchStations}
                 tickets={tickets}
                 onAddSalesBox={handleAddSalesBox}
+                onUpdateSalesBox={handleUpdateSalesBox}
                 onDeleteSalesBox={handleDeleteSalesBox}
                 onAddDispatchStation={handleAddDispatchStation}
+                onUpdateDispatchStation={handleUpdateDispatchStation}
                 onDeleteDispatchStation={handleDeleteDispatchStation}
               />
             </motion.div>
@@ -654,6 +769,7 @@ export default function App() {
               <Articulos 
                 products={products}
                 sides={sides}
+                dispatchStations={dispatchStations}
                 onAddProduct={handleAddProduct}
                 onUpdateProduct={handleUpdateProduct}
                 onDeleteProduct={handleDeleteProduct}
@@ -677,6 +793,16 @@ export default function App() {
               <Admin 
                 tickets={tickets} 
                 salesBoxes={salesBoxes}
+                dispatchStations={dispatchStations}
+                generalClosures={generalClosures}
+                lastClosureDate={lastClosureDate}
+                onPerformGeneralClosure={handlePerformGeneralClosure}
+                onAddSalesBox={handleAddSalesBox}
+                onUpdateSalesBox={handleUpdateSalesBox}
+                onDeleteSalesBox={handleDeleteSalesBox}
+                onAddDispatchStation={handleAddDispatchStation}
+                onUpdateDispatchStation={handleUpdateDispatchStation}
+                onDeleteDispatchStation={handleDeleteDispatchStation}
                 onNavigateToTerminales={() => setCurrentView('terminales')}
               />
             </motion.div>

@@ -1,23 +1,26 @@
 import React, { useState, useMemo } from 'react';
-import { Product, Side, CartItem, Ticket, User } from '../types';
+import { Product, Side, CartItem, Ticket, User, DispatchStation } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Plus, Minus, Trash2, CheckCircle2, ReceiptText, Loader2, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, CheckCircle2, ReceiptText, Loader2, AlertCircle, MapPin, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ApsLogo } from './ApsLogo';
+import { groupCartByStation } from '../utils/stationRouting';
 
 interface VentasProps {
   products: Product[];
   sides: Side[];
   stockData: Record<string, number>;
   currentUser: User;
-  onCheckout: (newTicket: Ticket) => void;
+  dispatchStations?: DispatchStation[];
+  onCheckout: (newTicket: Ticket | Ticket[]) => void;
 }
 
-export function Ventas({ products, sides, stockData, currentUser, onCheckout }: VentasProps) {
+export function Ventas({ products, sides, stockData, currentUser, dispatchStations, onCheckout }: VentasProps) {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [selectedSideId, setSelectedSideId] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [activeModalTicket, setActiveModalTicket] = useState<Ticket | null>(null);
+  const [activeModalTickets, setActiveModalTickets] = useState<Ticket[]>([]);
+  const [activeTicketIndex, setActiveTicketIndex] = useState<number>(0);
   const [caeStatus, setCaeStatus] = useState<'processing' | 'approved'>('processing');
   
   // Estado de Pago y vuelto
@@ -128,21 +131,55 @@ export function Ventas({ products, sides, stockData, currentUser, onCheckout }: 
     if (cart.length === 0) return;
     setIsProcessingCheckout(true);
 
-    const ticketNumber = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newTicket: Ticket = {
-      id: ticketNumber,
-      items: [...cart],
-      total,
-      status: 'pending',
-      createdAt: new Date(),
-      cashierName: currentUser.name,
-      boxId: currentUser.boxId || (currentUser.role === 'admin' ? 'CAJA-ADMIN' : 'CAJA-01'),
-      caeStatus: 'processing'
-    };
+    const grouped = groupCartByStation(cart, dispatchStations);
+    const ticketsToCreate: Ticket[] = [];
+    const baseNum = Math.floor(1000 + Math.random() * 9000);
+    const orderGroupId = `ORD-${baseNum}`;
+    const boxId = currentUser.boxId || (currentUser.role === 'admin' ? 'CAJA-ADMIN' : 'CAJA-01');
+
+    if (grouped.size <= 1) {
+      const [singleGroup] = Array.from(grouped.values());
+      const stationName = singleGroup?.stationName || 'Cocina y Minutas';
+      const stationId = singleGroup?.stationId;
+      ticketsToCreate.push({
+        id: `TKT-${baseNum}`,
+        items: [...cart],
+        total,
+        status: 'pending',
+        createdAt: new Date(),
+        cashierName: currentUser.name,
+        boxId,
+        caeStatus: 'processing',
+        targetStation: stationName,
+        targetStationId: stationId,
+        orderGroupId
+      });
+    } else {
+      const letters = ['A', 'B', 'C', 'D', 'E'];
+      let idx = 0;
+      grouped.forEach((group) => {
+        const letter = letters[idx] || `${idx + 1}`;
+        ticketsToCreate.push({
+          id: `TKT-${baseNum}-${letter}`,
+          items: [...group.items],
+          total: group.subtotal,
+          status: 'pending',
+          createdAt: new Date(),
+          cashierName: currentUser.name,
+          boxId,
+          caeStatus: 'processing',
+          targetStation: group.stationName,
+          targetStationId: group.stationId,
+          orderGroupId
+        });
+        idx++;
+      });
+    }
 
     setTimeout(() => {
-      onCheckout(newTicket);
-      setActiveModalTicket(newTicket);
+      onCheckout(ticketsToCreate);
+      setActiveModalTickets(ticketsToCreate);
+      setActiveTicketIndex(0);
       setCaeStatus('processing');
       setIsProcessingCheckout(false);
       setIsPaymentModalOpen(false); // Cerrar modal de pago
@@ -493,82 +530,156 @@ export function Ventas({ products, sides, stockData, currentUser, onCheckout }: 
 
       {/* Modal / Ticket Visual Generado al Cobrar */}
       <AnimatePresence>
-        {activeModalTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-slate-800 border border-slate-200 flex flex-col items-center relative overflow-hidden"
-            >
-              <div className="mb-2">
-                <ApsLogo className="w-14 h-14" />
-              </div>
+        {activeModalTickets.length > 0 && (() => {
+          const activeTicket = activeModalTickets[activeTicketIndex] || activeModalTickets[0];
+          const targetStation = activeTicket?.targetStation || 'Puesto de Entrega';
+          const isCocina = targetStation.toLowerCase().includes('cocina');
+          const isBarra = targetStation.toLowerCase().includes('barra');
+          const isParrilla = targetStation.toLowerCase().includes('parrilla');
 
-              <h3 className="text-2xl font-black text-slate-900">{activeModalTicket.id}</h3>
-              <p className="text-xs text-slate-500 font-semibold">APS POS - Comprobante de Venta</p>
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 text-slate-800 border border-slate-200 flex flex-col items-center relative overflow-hidden max-h-[95vh] overflow-y-auto"
+              >
+                <div className="mb-2">
+                  <ApsLogo className="w-12 h-12" />
+                </div>
 
-              <div className="w-full border-t border-dashed border-slate-300 my-4"></div>
-
-              {/* Items */}
-              <div className="w-full space-y-2 max-h-48 overflow-y-auto text-sm pr-1">
-                {activeModalTicket.items.map((item, idx) => {
-                  const unitPrice = getItemUnitPrice(item);
-                  return (
-                    <div key={idx} className="flex justify-between items-start">
-                      <div>
-                        <span className="font-semibold text-slate-800">{item.quantity}x {item.product.name}</span>
-                        {item.side && (
-                          <p className="text-xs text-slate-500">
-                            c/ {item.side.name} {item.side.price > 0 ? `(+$${item.side.price.toLocaleString()})` : ''}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-bold text-slate-700">${(unitPrice * item.quantity).toLocaleString()}</span>
+                {/* Si hay múltiples comprobantes por haber productos de varias zonas (Cocina y Barra) */}
+                {activeModalTickets.length > 1 && (
+                  <div className="w-full mb-3">
+                    <div className="text-center mb-2">
+                      <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 py-1 px-3 rounded-full uppercase tracking-wider">
+                        {activeModalTickets.length} Comprobantes Emitidos
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Los productos se deben retirar en puestos distintos:
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
 
-              <div className="w-full border-t border-dashed border-slate-300 my-4"></div>
-
-              <div className="flex justify-between items-center w-full text-xl font-black text-slate-900 mb-4">
-                <span>TOTAL</span>
-                <span>${activeModalTicket.total.toLocaleString()}</span>
-              </div>
-
-              {/* QR Code */}
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-4 flex flex-col items-center">
-                <QRCodeSVG value={activeModalTicket.id} size={140} level="M" />
-                <span className="text-[11px] font-mono text-slate-500 mt-1.5 font-bold">{activeModalTicket.id}</span>
-              </div>
-
-              {/* CAE Status */}
-              <div className={`w-full py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-colors ${caeStatus === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                {caeStatus === 'processing' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    CAE ARCA: Procesando en segundo plano...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    CAE ARCA: Aprobado ✅ (Sin demoras)
-                  </>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
+                      {activeModalTickets.map((t, idx) => {
+                        const tStation = t.targetStation || `Ticket ${idx + 1}`;
+                        const isCurrent = activeTicketIndex === idx;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setActiveTicketIndex(idx)}
+                            className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all text-center truncate ${
+                              isCurrent
+                                ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                            }`}
+                          >
+                            <span className="block truncate">{tStation}</span>
+                            <span className="text-[10px] text-slate-400 font-mono font-normal">#{t.id}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              <div className="mt-5 w-full flex gap-2">
-                <button
-                  onClick={() => setActiveModalTicket(null)}
-                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-sm"
+                {/* BANNER DESTACADO DE ZONA DE ENTREGA */}
+                <div
+                  className={`w-full py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider mb-3 shadow-2xs border ${
+                    isCocina
+                      ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                      : isBarra
+                      ? 'bg-blue-50 text-blue-900 border-blue-300'
+                      : isParrilla
+                      ? 'bg-amber-50 text-amber-900 border-amber-300'
+                      : 'bg-indigo-50 text-indigo-900 border-indigo-200'
+                  }`}
                 >
-                  Nueva Venta
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+                  <MapPin className="w-4 h-4 shrink-0" />
+                  <span>RETIRAR EN: {targetStation}</span>
+                </div>
+
+                <h3 className="text-2xl font-black text-slate-900 font-mono">{activeTicket.id}</h3>
+                <p className="text-xs text-slate-500 font-semibold">
+                  APS POS • Caja: {activeTicket.boxId} • Cajero: {activeTicket.cashierName}
+                </p>
+
+                <div className="w-full border-t border-dashed border-slate-300 my-3"></div>
+
+                {/* Items correspondientes a este ticket */}
+                <div className="w-full space-y-2 max-h-40 overflow-y-auto text-sm pr-1">
+                  {activeTicket.items.map((item, idx) => {
+                    const unitPrice = getItemUnitPrice(item);
+                    return (
+                      <div key={idx} className="flex justify-between items-start">
+                        <div>
+                          <span className="font-bold text-slate-800">{item.quantity}x {item.product.name}</span>
+                          {item.side && (
+                            <p className="text-xs text-slate-500">
+                              c/ {item.side.name} {item.side.price > 0 ? `(+$${item.side.price.toLocaleString()})` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-bold text-slate-700 font-mono">${(unitPrice * item.quantity).toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="w-full border-t border-dashed border-slate-300 my-3"></div>
+
+                <div className="flex justify-between items-center w-full text-lg font-black text-slate-900 mb-3">
+                  <span>TOTAL TICKET</span>
+                  <span className="font-mono">${activeTicket.total.toLocaleString()}</span>
+                </div>
+
+                {/* QR Code */}
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-3 flex flex-col items-center">
+                  <QRCodeSVG value={activeTicket.id} size={130} level="M" />
+                  <span className="text-[11px] font-mono text-slate-600 mt-1 font-bold">{activeTicket.id}</span>
+                </div>
+
+                {/* CAE Status */}
+                <div className={`w-full py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-colors mb-3 ${caeStatus === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                  {caeStatus === 'processing' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      CAE ARCA: Procesando en segundo plano...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      CAE ARCA: Aprobado ✅ (Sin demoras)
+                    </>
+                  )}
+                </div>
+
+                <div className="w-full flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="flex-1 py-3 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Imprimir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveModalTickets([]);
+                      setActiveTicketIndex(0);
+                    }}
+                    className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    Nueva Venta
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

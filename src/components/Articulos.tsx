@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Product, Side } from '../types';
-import { PackageSearch, Plus, Trash2, Edit3, X, UtensilsCrossed, Check } from 'lucide-react';
+import { Product, Side, DispatchStation } from '../types';
+import { PackageSearch, Plus, Trash2, Edit3, X, UtensilsCrossed, Check, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { resolveProductStation } from '../utils/stationRouting';
 
 interface ArticulosProps {
   products: Product[];
   sides: Side[];
+  dispatchStations?: DispatchStation[];
   onAddProduct: (product: Product) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
@@ -17,6 +19,7 @@ interface ArticulosProps {
 export function Articulos({
   products,
   sides,
+  dispatchStations,
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
@@ -27,20 +30,40 @@ export function Articulos({
   // Pestaña activa: 'articulos' o 'guarniciones'
   const [activeTab, setActiveTab] = useState<'articulos' | 'guarniciones'>('articulos');
 
+  const availableStations: DispatchStation[] = dispatchStations && dispatchStations.length > 0 
+    ? dispatchStations 
+    : [
+        { id: 'disp-1', name: 'Barra Principal', description: 'Bebidas y tragos' },
+        { id: 'disp-2', name: 'Cocina y Minutas', description: 'Platos calientes' },
+        { id: 'disp-3', name: 'Parrilla y Buffet', description: 'Entregas rápidas' }
+      ];
+
   // Estado Modal de Producto (Crear o Editar)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [prodName, setProdName] = useState('');
   const [prodPrice, setProdPrice] = useState<number | ''>('');
   const [prodCategory, setProdCategory] = useState<'Plato' | 'Bebida' | 'Postre' | 'Minutas'>('Plato');
+  const [prodDispatchStation, setProdDispatchStation] = useState<string>('');
   const [prodRequiresSide, setProdRequiresSide] = useState(false);
   const [prodAllowedSideIds, setProdAllowedSideIds] = useState<string[]>([]);
 
-  // Estado Modal de Guarnición (Crear o Editar)
+  // Estado Modal de Guarnición
   const [isSideModalOpen, setIsSideModalOpen] = useState(false);
   const [editingSide, setEditingSide] = useState<Side | null>(null);
   const [sideName, setSideName] = useState('');
-  const [sidePrice, setSidePrice] = useState<number | ''>(0);
+  const [sidePrice, setSidePrice] = useState<number | ''>('');
+
+  // Sugerir puesto de entrega por categoría
+  const suggestStationForCategory = (cat: 'Plato' | 'Bebida' | 'Postre' | 'Minutas'): string => {
+    if (cat === 'Bebida') {
+      const barra = availableStations.find(s => s.name.toLowerCase().includes('barra'));
+      return barra?.name || availableStations[0]?.name || 'Barra Principal';
+    }
+    const cocina = availableStations.find(s => s.name.toLowerCase().includes('cocina')) 
+      || availableStations.find(s => !s.name.toLowerCase().includes('barra'));
+    return cocina?.name || availableStations[1]?.name || availableStations[0]?.name || 'Cocina y Minutas';
+  };
 
   // Abrir modal de producto para crear
   const openNewProductModal = () => {
@@ -48,6 +71,7 @@ export function Articulos({
     setProdName('');
     setProdPrice('');
     setProdCategory('Plato');
+    setProdDispatchStation(suggestStationForCategory('Plato'));
     setProdRequiresSide(false);
     setProdAllowedSideIds([]);
     setIsProductModalOpen(true);
@@ -59,6 +83,8 @@ export function Articulos({
     setProdName(product.name);
     setProdPrice(product.price);
     setProdCategory(product.category);
+    const currentStation = product.dispatchStationName || resolveProductStation(product, availableStations).name;
+    setProdDispatchStation(currentStation);
     setProdRequiresSide(Boolean(product.requiresSide));
     setProdAllowedSideIds(product.allowedSideIds ? [...product.allowedSideIds] : []);
     setIsProductModalOpen(true);
@@ -69,12 +95,18 @@ export function Articulos({
     e.preventDefault();
     if (!prodName.trim() || !prodPrice || Number(prodPrice) <= 0) return;
 
+    const matchedStation = availableStations.find(s => s.name === prodDispatchStation);
+    const stationId = matchedStation?.id || undefined;
+    const stationName = prodDispatchStation.trim() || suggestStationForCategory(prodCategory);
+
     if (editingProduct) {
       const updated: Product = {
         ...editingProduct,
         name: prodName.trim(),
         price: Number(prodPrice),
         category: prodCategory,
+        dispatchStationId: stationId,
+        dispatchStationName: stationName,
         requiresSide: prodCategory === 'Plato' ? prodRequiresSide : false,
         allowedSideIds: (prodCategory === 'Plato' && prodRequiresSide) ? prodAllowedSideIds : undefined,
       };
@@ -85,6 +117,8 @@ export function Articulos({
         name: prodName.trim(),
         price: Number(prodPrice),
         category: prodCategory,
+        dispatchStationId: stationId,
+        dispatchStationName: stationName,
         requiresSide: prodCategory === 'Plato' ? prodRequiresSide : false,
         allowedSideIds: (prodCategory === 'Plato' && prodRequiresSide) ? prodAllowedSideIds : undefined,
       };
@@ -221,6 +255,7 @@ export function Articulos({
                 <th className="p-4">ID</th>
                 <th className="p-4">Artículo</th>
                 <th className="p-4">Categoría</th>
+                <th className="p-4">Zona de Entrega</th>
                 <th className="p-4">Guarniciones Permitidas</th>
                 <th className="p-4 text-right">Precio Venta</th>
                 <th className="p-4 text-center">Acciones</th>
@@ -229,7 +264,7 @@ export function Articulos({
             <tbody className="divide-y divide-slate-100 text-sm">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-400">
+                  <td colSpan={7} className="p-12 text-center text-slate-400">
                     <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
                       <PackageSearch className="w-7 h-7" />
                     </div>
@@ -248,6 +283,11 @@ export function Articulos({
                 </tr>
               ) : (
                 products.map((p) => {
+                  const targetStation = p.dispatchStationName || resolveProductStation(p, availableStations).name;
+                  const isCocina = targetStation.toLowerCase().includes('cocina');
+                  const isBarra = targetStation.toLowerCase().includes('barra');
+                  const isParrilla = targetStation.toLowerCase().includes('parrilla');
+
                   // Calcular texto de guarniciones permitidas
                   let sidesBadge;
                   if (!p.requiresSide) {
@@ -297,6 +337,22 @@ export function Articulos({
                           }`}
                         >
                           {p.category}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                            isCocina 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                              : isBarra 
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : isParrilla
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span>{targetStation}</span>
                         </span>
                       </td>
                       <td className="p-4">{sidesBadge}</td>
@@ -470,6 +526,8 @@ export function Articulos({
                         const val = e.target.value as any;
                         setProdCategory(val);
                         if (val !== 'Plato') setProdRequiresSide(false);
+                        // Sugerir automáticamente la zona según categoría
+                        setProdDispatchStation(suggestStationForCategory(val));
                       }}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800 font-medium text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     >
@@ -495,6 +553,33 @@ export function Articulos({
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800 font-bold text-base focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
+                </div>
+
+                {/* Selector de Zona de Entrega / Despacho Destino */}
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                      Zona de Entrega / Despacho Destino *
+                    </span>
+                    <span className="text-[11px] text-indigo-600 font-bold">
+                      {availableStations.length} puestos disponibles
+                    </span>
+                  </label>
+                  <select
+                    value={prodDispatchStation}
+                    onChange={(e) => setProdDispatchStation(e.target.value)}
+                    className="w-full bg-white border-2 border-indigo-200 text-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs"
+                  >
+                    {availableStations.map(st => (
+                      <option key={st.id} value={st.name}>
+                        {st.name} {st.description ? `— ${st.description}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    Al cobrarse este artículo, el comprobante se enviará a este puesto de entrega (ej: Comida a Cocina, Bebidas a Barra).
+                  </p>
                 </div>
 
                 {prodCategory === 'Plato' && (
