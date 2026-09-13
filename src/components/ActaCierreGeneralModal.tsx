@@ -12,7 +12,17 @@ export function ActaCierreGeneralModal({ closure, onClose }: ActaCierreGeneralMo
   if (!closure) return null;
 
   const handlePrint = () => {
-    window.print();
+    try {
+      window.print();
+      // En iframes restringidos (como vistas previas), window.print a veces falla silenciosamente
+      setTimeout(() => {
+        if (window.self !== window.top) {
+          alert("Si el diálogo de impresión no aparece, por favor abre la aplicación en una nueva pestaña usando el botón en la esquina superior derecha.");
+        }
+      }, 500);
+    } catch (e) {
+      alert("Por favor abre la aplicación en una nueva pestaña para imprimir.");
+    }
   };
 
   const formattedDate = new Date(closure.closedAt).toLocaleDateString('es-AR', {

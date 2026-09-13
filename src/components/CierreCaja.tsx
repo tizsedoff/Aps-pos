@@ -78,7 +78,16 @@ export function CierreCaja({ tickets, currentUser, onBack, onLogout, salesBoxes 
   }, [tickets, currentUser, adminSelectedBox]);
 
   const handlePrint = () => {
-    window.print();
+    try {
+      window.print();
+      setTimeout(() => {
+        if (window.self !== window.top) {
+          alert("Si el diálogo de impresión no aparece, por favor abre la aplicación en una nueva pestaña usando el botón en la esquina superior derecha.");
+        }
+      }, 500);
+    } catch (e) {
+      alert("Por favor abre la aplicación en una nueva pestaña para imprimir.");
+    }
   };
 
   const today = new Date();

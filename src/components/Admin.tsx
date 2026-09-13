@@ -33,6 +33,7 @@ import { ChangePasswordModal } from './ChangePasswordModal';
 import { Terminales } from './Terminales';
 import { CierreGeneralModal } from './CierreGeneralModal';
 import { ActaCierreGeneralModal } from './ActaCierreGeneralModal';
+import { ActaCierreMensualModal } from './ActaCierreMensualModal';
 
 interface AdminProps {
   tickets: Ticket[];
@@ -72,6 +73,8 @@ export function Admin({
   const [isCierreModalOpen, setIsCierreModalOpen] = useState(false);
   // Modal para ver/imprimir el Acta de Cierre General
   const [selectedClosureForActa, setSelectedClosureForActa] = useState<GeneralClosure | null>(null);
+  // Modal para ver/imprimir Cierre Mensual
+  const [isMensualModalOpen, setIsMensualModalOpen] = useState(false);
 
   // Estado para modificar caja desde el admin panel
   const [editingBox, setEditingBox] = useState<SalesBox | null>(null);
@@ -348,21 +351,31 @@ export function Admin({
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-3 sm:mt-0">
               <div className="text-right hidden sm:block">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Acumulado Mes (Cierres)</span>
                 <span className="font-mono font-black text-emerald-700 text-base">
                   ${closedMonthSales.toLocaleString()}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsCierreModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-98"
-              >
-                <Lock className="w-4 h-4" />
-                <span>Realizar Cierre de Hoy</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMensualModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-98"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span className="hidden sm:inline">Resumen Mes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCierreModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-98"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Realizar Cierre de Hoy</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1052,6 +1065,15 @@ export function Admin({
         closure={selectedClosureForActa}
         onClose={() => setSelectedClosureForActa(null)}
       />
+
+      {/* Modal para Ver / Imprimir Cierre Mensual */}
+      {isMensualModalOpen && (
+        <ActaCierreMensualModal
+          closures={generalClosures}
+          totalSales={closedMonthSales}
+          onClose={() => setIsMensualModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -56,6 +56,8 @@ export function Articulos({
   const [sideName, setSideName] = useState('');
   const [sidePrice, setSidePrice] = useState<number | ''>('');
 
+  const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
+
   // Sugerir puesto de entrega por categoría
   const suggestStationForCategory = (cat: 'Plato' | 'Bebida' | 'Postre' | 'Minutas'): string => {
     if (cat === 'Bebida') {
@@ -190,6 +192,12 @@ export function Articulos({
     setIsSideModalOpen(false);
   };
 
+  // Filtrado de catálogo
+  const filteredProducts = products.filter(p => 
+    p.id.toLowerCase().includes(catalogSearchTerm.toLowerCase()) || 
+    p.name.toLowerCase().includes(catalogSearchTerm.toLowerCase())
+  );
+
   return (
     <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
       {/* Header con Pestañas */}
@@ -263,6 +271,15 @@ export function Articulos({
       {/* CONTENIDO SOLAPA 1: ARTÍCULOS */}
       {activeTab === 'articulos' && (
         <div className="flex-1 overflow-y-auto">
+          <div className="p-4 border-b border-slate-100 bg-white">
+            <input
+              type="text"
+              placeholder="🔍 Buscar por código de producto (ej: PROD-123) o nombre..."
+              value={catalogSearchTerm}
+              onChange={(e) => setCatalogSearchTerm(e.target.value)}
+              className="w-full max-w-md bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+            />
+          </div>
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -295,8 +312,14 @@ export function Articulos({
                     </button>
                   </td>
                 </tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                    No se encontraron artículos que coincidan con la búsqueda.
+                  </td>
+                </tr>
               ) : (
-                products.map((p) => {
+                filteredProducts.map((p) => {
                   const targetStation = p.dispatchStationName || resolveProductStation(p, availableStations).name;
                   const isCocina = targetStation.toLowerCase().includes('cocina');
                   const isBarra = targetStation.toLowerCase().includes('barra');

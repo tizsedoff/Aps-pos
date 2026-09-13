@@ -17,6 +17,7 @@ interface VentasProps {
 
 export function Ventas({ products, sides, stockData, currentUser, dispatchStations, onCheckout }: VentasProps) {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [productSearchTerm, setProductSearchTerm] = useState<string>('');
   const [selectedSideId, setSelectedSideId] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeModalTickets, setActiveModalTickets] = useState<Ticket[]>([]);
@@ -27,6 +28,15 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [amountPaid, setAmountPaid] = useState<string>('');
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearchTerm.trim()) return products;
+    const lowerTerm = productSearchTerm.toLowerCase();
+    return products.filter(p => 
+      p.id.toLowerCase().includes(lowerTerm) || 
+      p.name.toLowerCase().includes(lowerTerm)
+    );
+  }, [products, productSearchTerm]);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
@@ -224,6 +234,13 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
                 </span>
               )}
             </label>
+            <input
+              type="text"
+              placeholder="🔍 Buscar por nombre o código de producto..."
+              value={productSearchTerm}
+              onChange={(e) => setProductSearchTerm(e.target.value)}
+              className="w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+            />
             <select
               id="product"
               value={selectedProductId}
@@ -233,8 +250,10 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
               <option value="">-- Elija un artículo para agregar --</option>
               {products.length === 0 ? (
                 <option value="" disabled>No hay productos en el catálogo. Cargue artículos primero.</option>
+              ) : filteredProducts.length === 0 ? (
+                <option value="" disabled>No se encontraron artículos con esa búsqueda.</option>
               ) : (
-                products.map(p => {
+                filteredProducts.map(p => {
                   const stock = stockData[p.id] ?? 0;
                   const volumeText = p.category === 'Bebida' && p.volumeUnit && p.volumeAmount ? ` [${p.volumeAmount}${p.volumeUnit}]` : '';
                   return (
@@ -650,9 +669,27 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
                   <span className="font-mono">${activeTicket.total.toLocaleString()}</span>
                 </div>
 
-                {/* QR Code */}
+                {/* QR Code AFIP */}
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-3 flex flex-col items-center">
-                  <QRCodeSVG value={activeTicket.id} size={130} level="M" />
+                  <QRCodeSVG 
+                    value={`https://www.afip.gob.ar/fe/qr/?p=${btoa(JSON.stringify({
+                      ver: 1,
+                      fecha: new Date().toISOString().split('T')[0],
+                      cuit: 30000000007,
+                      ptoVta: 10,
+                      tipoCmp: 1,
+                      nroCmp: parseInt(activeTicket.id.replace(/\D/g, '')) || 94,
+                      importe: activeTicket.total,
+                      moneda: "PES",
+                      ctz: 1,
+                      tipoDocRec: 99,
+                      nroDocRec: 0,
+                      tipoCodAut: "E",
+                      codAut: 70417054367476
+                    }))}`} 
+                    size={130} 
+                    level="M" 
+                  />
                   <span className="text-[11px] font-mono text-slate-600 mt-1 font-bold">{activeTicket.id}</span>
                 </div>
 
@@ -674,7 +711,18 @@ export function Ventas({ products, sides, stockData, currentUser, dispatchStatio
                 <div className="w-full flex gap-2">
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      try {
+                        window.print();
+                        setTimeout(() => {
+                          if (window.self !== window.top) {
+                            alert("Si el diálogo de impresión no aparece, por favor abre la aplicación en una nueva pestaña usando el botón en la esquina superior derecha.");
+                          }
+                        }, 500);
+                      } catch (e) {
+                        alert("Por favor abre la aplicación en una nueva pestaña para imprimir.");
+                      }
+                    }}
                     className="flex-1 py-3 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Printer className="w-4 h-4" />
