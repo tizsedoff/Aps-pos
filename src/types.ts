@@ -4,11 +4,13 @@ export interface Product {
   price: number;
   category: 'Plato' | 'Bebida' | 'Postre' | 'Minutas';
   requiresSide?: boolean;
+  allowedSideIds?: string[];
 }
 
 export interface Side {
   id: string;
   name: string;
+  price: number;
 }
 
 export interface CartItem {

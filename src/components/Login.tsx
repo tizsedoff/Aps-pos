@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Store, UserCircle2, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
+import { UserCircle2, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ApsLogo } from './ApsLogo';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -49,12 +50,12 @@ export function Login({ onLogin }: LoginProps) {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-200 w-full max-w-md flex flex-col items-center text-center"
       >
-        <div className="w-20 h-20 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg mb-6">
-          <Store className="w-10 h-10 text-blue-400" />
+        <div className="mb-5 drop-shadow-md">
+          <ApsLogo className="w-24 h-24" />
         </div>
         
-        <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">APS POS</h1>
-        <p className="text-slate-500 mb-8 font-medium">Apertura de Caja y Turno</p>
+        <h1 className="text-3xl font-black text-slate-900 mb-1 tracking-tight">APS POS</h1>
+        <p className="text-slate-500 mb-7 font-medium text-sm">Control de Ventas y Despacho</p>
 
         {/* Selector de Tipo de Ingreso */}
         <div className="flex w-full bg-slate-100 p-1.5 rounded-xl mb-8">

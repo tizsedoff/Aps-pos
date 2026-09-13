@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Ticket, User } from '../types';
 import { Printer, Calculator, CalendarClock, Store, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
+import { ApsLogo } from './ApsLogo';
 
 interface CierreCajaProps {
   tickets: Ticket[];
@@ -32,8 +33,9 @@ export function CierreCaja({ tickets, currentUser, onBack, onLogout }: CierreCaj
             total: 0
           };
         }
+        const itemUnitPrice = item.product.price + (item.side?.price || 0);
         itemsMap[item.product.id].quantity += item.quantity;
-        itemsMap[item.product.id].total += (item.product.price * item.quantity);
+        itemsMap[item.product.id].total += (itemUnitPrice * item.quantity);
       });
     });
 
@@ -76,11 +78,11 @@ export function CierreCaja({ tickets, currentUser, onBack, onLogout }: CierreCaj
         className="bg-white w-full max-w-2xl rounded-2xl shadow-sm border border-slate-200 p-8 print:shadow-none print:border-none print:w-full print:max-w-none print:p-0"
       >
         <div className="text-center border-b-2 border-dashed border-slate-300 pb-6 mb-6">
-          <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 print:bg-white print:text-black print:border-2 print:border-black">
-            <Store className="w-8 h-8" />
+          <div className="flex justify-center mb-4">
+            <ApsLogo className="w-16 h-16 drop-shadow-xs" />
           </div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Cierre de Caja Z</h2>
-          <p className="text-slate-500 font-medium mt-1">APS - Event POS</p>
+          <p className="text-slate-500 font-semibold mt-1">APS POS - Eventos</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-8 text-sm">

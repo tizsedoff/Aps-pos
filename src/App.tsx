@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ViewScreen, User, Product, Ticket } from './types';
-import { INITIAL_PRODUCTS, INITIAL_STOCK, INITIAL_TICKETS } from './data';
+import { ViewScreen, User, Product, Ticket, Side } from './types';
+import { INITIAL_PRODUCTS, INITIAL_STOCK, INITIAL_TICKETS, INITIAL_SIDES } from './data';
 import { Ventas } from './components/Ventas';
 import { Despacho } from './components/Despacho';
 import { Stock } from './components/Stock';
@@ -8,12 +8,58 @@ import { Articulos } from './components/Articulos';
 import { Admin } from './components/Admin';
 import { CierreCaja } from './components/CierreCaja';
 import { Login } from './components/Login';
+import { ApsLogo } from './components/ApsLogo';
 import { Store, ReceiptText, ScanLine, PackageSearch, Archive, BarChart3, LogOut, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<ViewScreen>('ventas');
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [currentView, setCurrentView] = useState<ViewScreen>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_current_view');
+      return (saved as ViewScreen) || 'ventas';
+    } catch {
+      return 'ventas';
+    }
+  });
+
+  // Guardar sesión y vista en localStorage
+  React.useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem('aps_pos_current_user', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('aps_pos_current_user');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [currentUser]);
+
+  React.useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem('aps_pos_current_view', currentView);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [currentView, currentUser]);
+
+  // Si el rol es cajero y está en una vista de admin, redirigir a ventas
+  React.useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin' && ['stock', 'articulos', 'metricas'].includes(currentView)) {
+      setCurrentView('ventas');
+    }
+  }, [currentUser, currentView]);
 
   // Estado unificado y compartido en tiempo real (iniciando totalmente limpio)
   const [products, setProducts] = useState<Product[]>(() => {
@@ -22,6 +68,16 @@ export default function App() {
       return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
     } catch {
       return INITIAL_PRODUCTS;
+    }
+  });
+
+  // Estado de Guarniciones persistido
+  const [sides, setSides] = useState<Side[]>(() => {
+    try {
+      const saved = localStorage.getItem('aps_pos_sides');
+      return saved ? JSON.parse(saved) : INITIAL_SIDES;
+    } catch {
+      return INITIAL_SIDES;
     }
   });
 
@@ -57,6 +113,14 @@ export default function App() {
       console.error(e);
     }
   }, [products]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aps_pos_sides', JSON.stringify(sides));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [sides]);
 
   React.useEffect(() => {
     try {
@@ -125,14 +189,47 @@ export default function App() {
     setStockData(prev => ({ ...prev, [newProduct.id]: 0 })); // Inicia con 0 stock hasta que se cargue
   };
 
+  const handleUpdateProduct = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  };
+
   const handleDeleteProduct = (productId: string) => {
     setProducts(prev => prev.filter(p => p.id !== productId));
+  };
+
+  // Manejadores de Guarniciones (ADMIN)
+  const handleAddSide = (newSide: Side) => {
+    setSides(prev => [...prev, newSide]);
+  };
+
+  const handleUpdateSide = (updatedSide: Side) => {
+    setSides(prev => prev.map(s => s.id === updatedSide.id ? updatedSide : s));
+  };
+
+  const handleDeleteSide = (sideId: string) => {
+    setSides(prev => prev.filter(s => s.id !== sideId));
+    // Limpiar de los productos que la tenían asociada
+    setProducts(prev => prev.map(p => {
+      if (p.allowedSideIds?.includes(sideId)) {
+        return {
+          ...p,
+          allowedSideIds: p.allowedSideIds.filter(id => id !== sideId)
+        };
+      }
+      return p;
+    }));
   };
 
   // Cierre de turno / logout
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentView('ventas');
+    try {
+      localStorage.removeItem('aps_pos_current_user');
+      localStorage.removeItem('aps_pos_current_view');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (!currentUser) {
@@ -148,9 +245,7 @@ export default function App() {
       <nav className="flex items-center justify-between px-6 py-3.5 bg-white border-b border-slate-200 shrink-0 shadow-xs z-20 print:hidden">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-xs">
-              <Store className="w-5 h-5 text-blue-400" />
-            </div>
+            <ApsLogo className="w-10 h-10 drop-shadow-xs shrink-0" />
             <div>
               <div className="flex items-center gap-1.5">
                 <h1 className="text-xl font-black tracking-tight leading-none text-slate-900">APS</h1>
@@ -277,6 +372,7 @@ export default function App() {
             >
               <Ventas 
                 products={products}
+                sides={sides}
                 stockData={stockData}
                 currentUser={currentUser}
                 onCheckout={handleNewTicket}
@@ -332,8 +428,13 @@ export default function App() {
             >
               <Articulos 
                 products={products}
+                sides={sides}
                 onAddProduct={handleAddProduct}
+                onUpdateProduct={handleUpdateProduct}
                 onDeleteProduct={handleDeleteProduct}
+                onAddSide={handleAddSide}
+                onUpdateSide={handleUpdateSide}
+                onDeleteSide={handleDeleteSide}
               />
             </motion.div>
           )}

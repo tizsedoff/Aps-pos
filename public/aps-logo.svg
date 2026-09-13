@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Sombra del squircle -->
+    <filter id="squircleShadow" x="-20%" y="-15%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#050a18" flood-opacity="0.45" />
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0b1733" flood-opacity="0.25" />
+    </filter>
+
+    <!-- Fondo del icono: gradiente azul marino profundo -->
+    <linearGradient id="squircleBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#192e59" />
+      <stop offset="50%" stop-color="#101d3b" />
+      <stop offset="100%" stop-color="#091226" />
+    </linearGradient>
+
+    <!-- Borde interior con sutil brillo superior -->
+    <linearGradient id="squircleBorder" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#70a6ff" stop-opacity="0.4" />
+      <stop offset="40%" stop-color="#3b82f6" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.0" />
+    </linearGradient>
+
+    <!-- Gradiente de texto APS: Blanco hielo brillante arriba a Azul Eléctrico abajo -->
+    <linearGradient id="apsLetterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="15%" stop-color="#EDF6FF" />
+      <stop offset="48%" stop-color="#93C5FD" />
+      <stop offset="78%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+
+    <!-- Resplandor sutil en las letras -->
+    <filter id="letterGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base -->
+  <g filter="url(#squircleShadow)">
+    <rect 
+      x="44" 
+      y="44" 
+      width="424" 
+      height="424" 
+      rx="110" 
+      ry="110" 
+      fill="url(#squircleBg)" 
+    />
+    <rect 
+      x="45" 
+      y="45" 
+      width="422" 
+      height="422" 
+      rx="109" 
+      ry="109" 
+      fill="none" 
+      stroke="url(#squircleBorder)" 
+      stroke-width="2" 
+    />
+  </g>
+
+  <!-- Letras APS con fidelidad vectorial exacta -->
+  <g fill="url(#apsLetterGrad)" filter="url(#letterGlow)">
+    
+    <!-- LETRA A: Galón / Chevron estilizado con vértice suavizado y base plana -->
+    <path d="
+      M 118 288 
+      L 142 288 
+      L 170 231 
+      L 198 288 
+      L 222 288 
+      L 177 210 
+      C 174 205 166 205 163 210 
+      Z
+    " />
+
+    <!-- LETRA P: Voladizo superior a la izquierda, bucle redondeado y asta vertical -->
+    <path d="
+      M 211 208 
+      L 278 208 
+      C 294 208 304 218 304 233 
+      C 304 247 294 257 278 257 
+      L 255 257 
+      L 255 288 
+      L 235 288 
+      L 235 254 
+      C 235 244 242 238 252 238 
+      L 276 238 
+      C 283 238 286 236 286 233 
+      C 286 229 283 227 276 227 
+      L 211 227 
+      Z
+    " />
+
+    <!-- LETRA S: Curvas suaves estilizadas y cortes limpios -->
+    <path d="
+      M 396 208 
+      L 396 227 
+      L 347 227 
+      C 340 227 337 230 337 233 
+      C 337 237 340 240 347 240 
+      L 383 240 
+      C 396 240 404 248 404 261 
+      C 404 274 395 288 381 288 
+      L 320 288 
+      L 320 269 
+      L 373 269 
+      C 380 269 384 266 384 262 
+      C 384 258 380 255 373 255 
+      L 338 255 
+      C 325 255 316 247 316 234 
+      C 316 221 325 208 341 208 
+      Z
+    " />
+
+  </g>
+</svg>
